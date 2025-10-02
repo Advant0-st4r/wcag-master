@@ -11,9 +11,11 @@ const ProcessPage = () => {
   const maxIterations = 3
   const navigate = useNavigate()
 
-  const handleSubmitFeedback = () => {
+  const handleSubmitFeedback = async () => {
+    // TODO: Send feedback to Supabase Edge Function for AI refinement
     setCodePreview(`${codePreview}\n// Refined after feedback ${iteration}: Added accessibility improvements`)
     setFeedback('')
+
     if (iteration < maxIterations) {
       setIteration(iteration + 1)
     } else {
@@ -28,7 +30,7 @@ const ProcessPage = () => {
       <Textarea 
         value={feedback} 
         onChange={(e) => setFeedback(e.target.value)} 
-        placeholder="Provide feedback (e.g., 'Improve mobile accessibility' or 'Fix color contrast')" 
+        placeholder="Provide feedback (e.g., 'Improve mobile accessibility', 'Fix color contrast')" 
         className="mb-6" 
       />
       <Button onClick={handleSubmitFeedback}>Submit Feedback & Refine</Button>
@@ -37,3 +39,4 @@ const ProcessPage = () => {
 }
 
 export default ProcessPage
+
