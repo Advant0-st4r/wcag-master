@@ -3,6 +3,7 @@ import { useDropzone } from 'react-dropzone'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase-client'
+import { supabase } from '@/supabase'
 
 const UploadPage = () => {
   const [files, setFiles] = useState<File[]>([])
