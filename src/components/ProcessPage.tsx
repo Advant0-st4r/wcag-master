@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useNavigate } from 'react-router-dom'
+import { supabase } from '@/supabase'
 
 const ProcessPage = () => {
   const [iteration, setIteration] = useState(1)
