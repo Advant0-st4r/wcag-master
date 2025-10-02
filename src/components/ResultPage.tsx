@@ -1,5 +1,6 @@
 import ReactDiffViewer from 'react-diff-viewer'
 import { Button } from '@/components/ui/button'
+import { supabase } from '@/supabase'
 
 const originalCode = `// Original code\n<html>\n  <body>\n    <h1>Hello World</h1>\n  </body>\n</html>`
 const optimizedCode = `// Optimized code with WCAG\n<html lang="en">\n  <body>\n    <h1 aria-label="Greeting">Hello World</h1>\n  </body>\n</html>`
