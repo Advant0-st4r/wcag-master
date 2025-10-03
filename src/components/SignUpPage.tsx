@@ -1,6 +1,8 @@
+// src/components/SignUpPage.tsx
 import { SignUp } from '@clerk/clerk-react'
 
-const SignUpPage = () => <SignUp path="/signup" routing="path" />
-
-export default SignUpPage
-
+// Using Clerk's hosted UI component for signup
+export default function SignUpPage() {
+  // Clerk SignUp handles UI & flows
+  return <SignUp path="/signup" routing="path" />
+}
