@@ -1,82 +1,51 @@
-import { useEffect, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import ReactDiffViewer from 'react-diff-viewer'
 import { Button } from '@/components/ui/button'
-import { supabase } from '@/supabase'
-
-interface Upload {
-  id: string
-  file_name: string
-  feedbacks?: string[]
-  processed_file_url?: string
-}
+import { supabase } from '../supabase'
+import { useEffect, useState } from 'react'
 
 const ResultPage = () => {
-  const location = useLocation()
-  const uploadId = location.state?.uploadId as string
-
-  const [upload, setUpload] = useState<Upload | null>(null)
-  const [originalCode, setOriginalCode] = useState('// Loading original code...')
-  const [optimizedCode, setOptimizedCode] = useState('// Loading optimized code...')
+  const [originalCode, setOriginalCode] = useState('')
+  const [optimizedCode, setOptimizedCode] = useState('')
 
   useEffect(() => {
-    const fetchUpload = async () => {
-      if (!uploadId) return
-      const { data, error } = await supabase
-        .from<Upload>('uploads')
+    const fetchData = async () => {
+      const { data: uploads } = await supabase.from('uploads').select('*').limit(1)
+      if (!uploads || uploads.length === 0) return
+      setOriginalCode(uploads[0].file_content)
+
+      const { data: iterations } = await supabase
+        .from('iterations')
         .select('*')
-        .eq('id', uploadId)
-        .single()
+        .eq('upload_id', uploads[0].id)
+        .order('created_at', { ascending: false })
+        .limit(1)
 
-      if (error) {
-        console.error(error)
-        return
+      if (iterations && iterations.length > 0) {
+        setOptimizedCode(iterations[0].refined_code)
       }
-
-      setUpload(data)
-
-      // Mock fetch: For now, original code is first iteration or placeholder
-      setOriginalCode(`// Original uploaded file: ${data.file_name}\n<html>\n  <body>\n    <h1>Hello World</h1>\n  </body>\n</html>`)
-
-      // Mock optimized code: concatenate feedbacks
-      const optimized = data.feedbacks?.reduce(
-        (acc, fb, idx) => `${acc}\n// Refined after feedback ${idx + 1}: ${fb}`,
-        `// Optimized version of ${data.file_name}`
-      ) || `// Optimized version of ${data.file_name}`
-      setOptimizedCode(optimized)
     }
 
-    fetchUpload()
-  }, [uploadId])
+    fetchData()
+  }, [])
 
   const handleDownload = () => {
-    if (!upload) return
-
     const blob = new Blob([optimizedCode], { type: 'text/html' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `optimized_${upload.file_name}`
+    a.download = 'optimized.html'
     a.click()
   }
-
-  if (!upload) return <div className="min-h-screen flex items-center justify-center">Loading...</div>
 
   return (
     <div className="min-h-screen p-8 bg-gray-100">
       <h2 className="text-2xl font-bold mb-6">Optimized Code Preview</h2>
-
-      <ReactDiffViewer
-        oldValue={originalCode}
-        newValue={optimizedCode}
-        splitView={true}
-        showDiffOnly={false}
-      />
-
+      <ReactDiffViewer oldValue={originalCode} newValue={optimizedCode} splitView={true} showDiffOnly={false} />
       <Button onClick={handleDownload} className="mt-6">Download Optimized Files</Button>
     </div>
   )
 }
 
 export default ResultPage
+
 
