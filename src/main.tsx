@@ -3,16 +3,17 @@ import ReactDOM from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import { BrowserRouter as Router } from 'react-router-dom'
-// import { ClerkProvider } from '@clerk/clerk-react'
+import { ClerkProvider } from '@clerk/clerk-react'
 
-// const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Router>
-      {/* <ClerkProvider publishableKey={PUBLISHABLE_KEY}> */}
+      <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
         <App />
-      {/* </ClerkProvider> */}
+      </ClerkProvider>
     </Router>
   </React.StrictMode>,
 )
+
