@@ -1,38 +1,42 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../supabase'
+import { supabase } from '../../supabase'
 
 const ProcessPage = () => {
   const [iteration, setIteration] = useState(1)
   const [feedback, setFeedback] = useState('')
   const [codePreview, setCodePreview] = useState('')
+  const [uploadId, setUploadId] = useState<number | null>(null)
   const maxIterations = 3
   const navigate = useNavigate()
 
+  useEffect(() => {
+    // Get latest uploadId of the user
+    const fetchLatest = async () => {
+      const user = (await supabase.auth.getUser()).data.user
+      const { data } = await supabase.from('uploads').select('id').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(1).single()
+      setUploadId(data?.id || null)
+    }
+    fetchLatest()
+  }, [])
+
   const handleSubmitFeedback = async () => {
-    // For simplicity, take first upload
-    const { data: uploads } = await supabase.from('uploads').select('*').limit(1)
-    if (!uploads || uploads.length === 0) return
+    if (!uploadId) return
 
-    const uploadId = uploads[0].id
-
-    const response = await fetch('/.netlify/functions/refine-code', {
+    const res = await fetch('/.netlify/functions/refine-code', {
       method: 'POST',
       body: JSON.stringify({ uploadId, feedback }),
+      headers: { 'Content-Type': 'application/json' }
     })
 
-    const result = await response.json()
-    if (result.refinedCode) {
-      setCodePreview(result.refinedCode)
-      setFeedback('')
-      if (iteration < maxIterations) {
-        setIteration(iteration + 1)
-      } else {
-        navigate('/result')
-      }
-    }
+    const { refinedCode } = await res.json()
+    setCodePreview(refinedCode)
+    setFeedback('')
+
+    if (iteration < maxIterations) setIteration(iteration + 1)
+    else navigate('/result')
   }
 
   return (
@@ -42,7 +46,7 @@ const ProcessPage = () => {
       <Textarea 
         value={feedback} 
         onChange={(e) => setFeedback(e.target.value)} 
-        placeholder="Provide feedback" 
+        placeholder="Provide feedback..." 
         className="mb-6" 
       />
       <Button onClick={handleSubmitFeedback}>Submit Feedback & Refine</Button>
@@ -51,5 +55,6 @@ const ProcessPage = () => {
 }
 
 export default ProcessPage
+
 
 
