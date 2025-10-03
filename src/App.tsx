@@ -1,11 +1,12 @@
+// src/App.tsx
 import { Route, Routes } from 'react-router-dom'
-import LandingPage from './components/LandingPage.tsx'
-import SignUpPage from './components/SignUpPage.tsx'
-import UploadPage from './components/UploadPage.tsx'
-import ProcessPage from './components/ProcessPage.tsx'
-import ResultPage from './components/ResultPage.tsx'
+import LandingPage from './components/LandingPage'
+import SignUpPage from './components/SignUpPage'
+import UploadPage from './components/UploadPage'
+import ProcessPage from './components/ProcessPage'
+import ResultPage from './components/ResultPage'
 
-function App() {
+export default function App() {
   return (
     <Routes>
       <Route path="/" element={<LandingPage />} />
@@ -16,8 +17,3 @@ function App() {
     </Routes>
   )
 }
-
-export default App
-
-
-
