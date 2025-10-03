@@ -1,54 +1,83 @@
+// src/components/UploadPage.tsx
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../supabase'
+import { supabase } from '../supabase'
 
-const UploadPage = () => {
+export default function UploadPage() {
   const [files, setFiles] = useState<File[]>([])
-  const navigate = useNavigate()
+  const [uploading, setUploading] = useState(false)
+  const nav = useNavigate()
 
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    setFiles(acceptedFiles)
-  }, [])
+  const onDrop = useCallback((acceptedFiles: File[]) => setFiles(acceptedFiles), [])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop })
 
   const handleSubmit = async () => {
-    const user = (await supabase.auth.getUser()).data.user
-    if (!user) return
+    if (files.length === 0) return
+    setUploading(true)
 
-    for (const file of files) {
-      const { data, error } = await supabase.storage
-        .from('uploads')
-        .upload(`user-${user.id}/${file.name}`, file)
+    try {
+      // get user (if using supabase auth; otherwise adjust)
+      const { data: userResp } = await supabase.auth.getUser()
+      const user = userResp?.user
+      const userId = user?.id ?? 'anonymous'
 
-      if (error) console.error(error)
+      for (const file of files) {
+        // upload to storage
+        const path = `user-${userId}/${Date.now()}-${file.name}`
+        const { data: storageData, error: storageError } = await supabase.storage
+          .from('uploads')
+          .upload(path, file, { upsert: true })
 
-      await supabase.from('uploads').insert({
-        user_id: user.id,
-        file_name: file.name,
-        file_path: data?.path
-      })
+        if (storageError) {
+          console.error('Storage upload error', storageError)
+          continue
+        }
+
+        // optionally read the file content and save in DB for quick access (Phase1 fallback)
+        const text = await file.text()
+
+        const { error: dbError } = await supabase
+          .from('uploads')
+          .insert([{
+            user_id: userId,
+            file_name: file.name,
+            file_path: storageData.path,
+            file_content: text,
+            status: 'uploaded'
+          }])
+
+        if (dbError) console.error('DB insert error', dbError)
+      }
+
+      nav('/process')
+    } finally {
+      setUploading(false)
     }
-
-    navigate('/process')
   }
 
   return (
-    <div className="min-h-screen p-8 bg-gray-100">
-      <h2 className="text-2xl font-bold mb-6">Upload Frontend Files</h2>
-      <div {...getRootProps()} className="border-2 border-dashed border-gray-300 p-8 rounded-lg mb-6 cursor-pointer">
+    <div className="min-h-screen p-8">
+      <h2 className="text-2xl font-semibold mb-6">Upload Frontend Files</h2>
+
+      <div {...getRootProps()} className="border-2 border-dashed p-8 rounded-lg mb-6 text-center">
         <input {...getInputProps()} />
-        <p className="text-center text-gray-500">
-          {isDragActive ? 'Drop the files here...' : 'Drag & drop HTML/CSS/JS files here, or click to select'}
-        </p>
+        <p className="text-gray-600">{isDragActive ? 'Drop files here...' : "Drag & drop HTML/CSS/JS files here, or click to select"}</p>
       </div>
-      {files.length > 0 && <p className="mb-4">Selected files: {files.map((f) => f.name).join(', ')}</p>}
-      <Button onClick={handleSubmit} disabled={files.length === 0}>Apply WCAG Practices</Button>
+
+      {files.length > 0 && (
+        <ul className="mb-4">
+          {files.map(f => <li key={f.name} className="text-gray-700">{f.name} — {Math.round(f.size/1024)} KB</li>)}
+        </ul>
+      )}
+
+      <button onClick={handleSubmit} disabled={files.length === 0 || uploading}
+        className="px-5 py-2 bg-blue-600 text-white rounded-md disabled:opacity-60"
+      >
+        {uploading ? 'Uploading...' : 'Apply WCAG Practices'}
+      </button>
     </div>
   )
 }
-
-export default UploadPage
 
