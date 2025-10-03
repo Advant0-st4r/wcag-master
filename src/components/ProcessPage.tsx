@@ -1,60 +1,82 @@
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/textarea'
+// src/components/ProcessPage.tsx
+import { useEffect, useState } from 'react'
+import { supabase } from '../supabase'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../supabase'
 
-const ProcessPage = () => {
+export default function ProcessPage() {
+  const [uploadId, setUploadId] = useState<string | null>(null)
   const [iteration, setIteration] = useState(1)
   const [feedback, setFeedback] = useState('')
-  const [codePreview, setCodePreview] = useState('')
-  const [uploadId, setUploadId] = useState<number | null>(null)
-  const maxIterations = 3
+  const [preview, setPreview] = useState('// No preview yet')
   const navigate = useNavigate()
+  const maxIterations = 3
 
   useEffect(() => {
-    // Get latest uploadId of the user
-    const fetchLatest = async () => {
-      const user = (await supabase.auth.getUser()).data.user
-      const { data } = await supabase.from('uploads').select('id').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(1).single()
-      setUploadId(data?.id || null)
+    const loadLatestUpload = async () => {
+      const { data, error } = await supabase.from('uploads')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (error) {
+        console.error(error)
+        return
+      }
+      if (data) {
+        setUploadId(data.id)
+        setPreview(data.file_content ?? `// Uploaded file: ${data.file_name}`)
+      }
     }
-    fetchLatest()
+    loadLatestUpload()
   }, [])
 
-  const handleSubmitFeedback = async () => {
+  const handleRefine = async () => {
     if (!uploadId) return
 
-    const res = await fetch('/.netlify/functions/refine-code', {
-      method: 'POST',
-      body: JSON.stringify({ uploadId, feedback }),
-      headers: { 'Content-Type': 'application/json' }
+    // invoke Supabase Edge Function via supabase client
+    const res = await supabase.functions.invoke('refine-code', {
+      body: JSON.stringify({ uploadId, feedback })
     })
 
-    const { refinedCode } = await res.json()
-    setCodePreview(refinedCode)
-    setFeedback('')
+    if (!res) {
+      console.error('No response from function')
+      return
+    }
 
-    if (iteration < maxIterations) setIteration(iteration + 1)
+    // supabase.functions.invoke returns a Fetch Response-like object
+    const text = await res.text()
+    try {
+      const json = JSON.parse(text)
+      setPreview(json.refinedCode ?? json.refined_code ?? preview)
+    } catch {
+      setPreview(text)
+    }
+
+    setFeedback('')
+    if (iteration < maxIterations) setIteration(prev => prev + 1)
     else navigate('/result')
   }
 
   return (
-    <div className="min-h-screen p-8 bg-gray-100">
-      <h2 className="text-2xl font-bold mb-6">Refine Optimizations - Iteration {iteration}/{maxIterations}</h2>
-      <pre className="bg-white p-4 rounded-lg shadow mb-6 overflow-auto max-h-96">{codePreview}</pre>
-      <Textarea 
-        value={feedback} 
-        onChange={(e) => setFeedback(e.target.value)} 
-        placeholder="Provide feedback..." 
-        className="mb-6" 
+    <div className="min-h-screen p-8">
+      <h2 className="text-2xl font-semibold mb-4">Refine Optimizations — Iteration {iteration}/{maxIterations}</h2>
+
+      <pre className="bg-white p-4 rounded shadow max-h-80 overflow-auto mb-4">{preview}</pre>
+
+      <textarea
+        value={feedback}
+        onChange={(e) => setFeedback(e.target.value)}
+        placeholder="Provide feedback (e.g., 'Improve mobile accessibility')"
+        className="w-full p-3 border rounded mb-4 min-h-[120px]"
       />
-      <Button onClick={handleSubmitFeedback}>Submit Feedback & Refine</Button>
+
+      <div className="flex gap-3">
+        <button onClick={handleRefine} className="px-4 py-2 bg-blue-600 text-white rounded">
+          Submit Feedback & Refine
+        </button>
+      </div>
     </div>
   )
 }
-
-export default ProcessPage
-
-
 
