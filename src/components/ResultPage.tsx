@@ -1,6 +1,6 @@
 import ReactDiffViewer from 'react-diff-viewer'
 import { Button } from '@/components/ui/button'
-import { supabase } from '../supabase'
+import { supabase } from '../../supabase'
 import { useEffect, useState } from 'react'
 
 const ResultPage = () => {
@@ -8,24 +8,19 @@ const ResultPage = () => {
   const [optimizedCode, setOptimizedCode] = useState('')
 
   useEffect(() => {
-    const fetchData = async () => {
-      const { data: uploads } = await supabase.from('uploads').select('*').limit(1)
-      if (!uploads || uploads.length === 0) return
-      setOriginalCode(uploads[0].file_content)
+    const fetchCodes = async () => {
+      const user = (await supabase.auth.getUser()).data.user
+      const { data: upload } = await supabase.from('uploads').select('*').eq('user_id', user?.id).order('created_at', { ascending: false }).limit(1).single()
+      if (!upload) return
 
-      const { data: iterations } = await supabase
-        .from('iterations')
-        .select('*')
-        .eq('upload_id', uploads[0].id)
-        .order('created_at', { ascending: false })
-        .limit(1)
+      const { data: fileBlob } = await supabase.storage.from('uploads').download(upload.file_path)
+      const original = await fileBlob.text()
+      setOriginalCode(original)
 
-      if (iterations && iterations.length > 0) {
-        setOptimizedCode(iterations[0].refined_code)
-      }
+      const { data: iteration } = await supabase.from('iterations').select('refined_code').eq('upload_id', upload.id).order('created_at', { ascending: false }).limit(1).single()
+      setOptimizedCode(iteration?.refined_code || '')
     }
-
-    fetchData()
+    fetchCodes()
   }, [])
 
   const handleDownload = () => {
