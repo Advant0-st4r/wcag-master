@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../supabase'
+import { supabase } from '../../supabase'
 
 const UploadPage = () => {
   const [files, setFiles] = useState<File[]>([])
@@ -15,24 +15,21 @@ const UploadPage = () => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop })
 
   const handleSubmit = async () => {
+    const user = (await supabase.auth.getUser()).data.user
+    if (!user) return
+
     for (const file of files) {
-      const { data: uploadData, error: storageError } = await supabase.storage
+      const { data, error } = await supabase.storage
         .from('uploads')
-        .upload(file.name, file)
+        .upload(`user-${user.id}/${file.name}`, file)
 
-      if (storageError) {
-        console.error('Upload error:', storageError)
-        continue
-      }
+      if (error) console.error(error)
 
-      const fileContent = await file.text() // Read locally for iteration
-      const { error: dbError } = await supabase
-        .from('uploads')
-        .insert([{ file_name: file.name, file_content: fileContent, storage_path: uploadData.path }])
-
-      if (dbError) {
-        console.error('DB insert error:', dbError)
-      }
+      await supabase.from('uploads').insert({
+        user_id: user.id,
+        file_name: file.name,
+        file_path: data?.path
+      })
     }
 
     navigate('/process')
@@ -44,12 +41,10 @@ const UploadPage = () => {
       <div {...getRootProps()} className="border-2 border-dashed border-gray-300 p-8 rounded-lg mb-6 cursor-pointer">
         <input {...getInputProps()} />
         <p className="text-center text-gray-500">
-          {isDragActive ? 'Drop the files here...' : 'Drag \'n\' drop HTML/CSS/JS files here, or click to select'}
+          {isDragActive ? 'Drop the files here...' : 'Drag & drop HTML/CSS/JS files here, or click to select'}
         </p>
       </div>
-      {files.length > 0 && (
-        <p className="mb-4">Selected files: {files.map((f) => f.name).join(', ')}</p>
-      )}
+      {files.length > 0 && <p className="mb-4">Selected files: {files.map((f) => f.name).join(', ')}</p>}
       <Button onClick={handleSubmit} disabled={files.length === 0}>Apply WCAG Practices</Button>
     </div>
   )
